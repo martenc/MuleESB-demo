@@ -9,7 +9,10 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
     <flow name="ap_essentialsFlow">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/" doc:name="HTTP"/>
-        <set-payload value="Hello maofukka" doc:name="Set Payload"/>
-        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <set-payload value="#[&quot;hello maofukka&quot;.toUpperCase()]" doc:name="Set Payload"/>
+        <set-property propertyName="qpname" value="#[message.inboundProperties.'http.query.params'.name]" doc:name="Property"/>
+        <set-variable variableName="qptype" value="#[message.inboundProperties.'http.query.params'.type]" doc:name="Variable"/>
+        <set-session-variable variableName="qpcolor" value="#[message.inboundProperties.'http.query.params'.color]" doc:name="Session Variable"/>
+        <logger message="#[&quot;Name: &quot; + message.outboundProperties.qpname + &quot;: &quot; + &quot;Type &quot; + flowVars.qptype + &quot;:&quot; + &quot;Color &quot; + sessionVars.qpcolor + &quot;:&quot; + payload]" level="INFO" doc:name="Logger"/>
     </flow>
 </mule>
