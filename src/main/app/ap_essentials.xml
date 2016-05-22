@@ -1,18 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ws http://www.mulesoft.org/schema/mule/ws/current/mule-ws.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="United_REST_Request_Configuration" host="ilt.mulesoft-training.com" port="80" basePath="/essentials/united/flights" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Bank_REST_Request_Configuration" host="training.cloudhub.io" port="80" basePath="/build/banking/rest" doc:name="HTTP Request Configuration">
         <http:raml-api-configuration location="https://anypoint.mulesoft.com/apiplatform/repository/public/organizations/1203/apis/9565/versions/9867/files/root"/>
     </http:request-config>
-    <flow name="getUnitedFlightFlow">
+    <ws:consumer-config name="Delta_Web_Service_Consumer" service="TicketServiceService" port="TicketServicePort" serviceAddress="http://training.cloudhub.io/essentials/delta" wsdlLocation="http://ilt.mulesoft-training.com/essentials/delta?wsdl" doc:name="Web Service Consumer"/>
+    <db:mysql-config name="Training_MySQL_Configuration" host="iltdb.mulesoft-training.com" port="3306" user="mule" password="mule" database="training" doc:name="MySQL Configuration"/>
+    <db:mysql-config name="MySQL_Configuration" host="iltdb.mulesoft-training.com" port="3306" user="mule" password="mule" database="training" doc:name="MySQL Configuration"/>
+    <jms:activemq-connector name="Active_MQ" specification="1.1" brokerURL="tcp://54.69.115.37:61616" validateConnections="true" doc:name="Active MQ"/>
+    <flow name="getUnitedFlightFlow" doc:description="United RESTful web service
+&#8226; URL: http://ilt.mulesoft-training.com/essentials/united/flights
+&#8226; URL for a destination: http://ilt.mulesoft-training.com/essentials/united/flights/SFO (SFO,LAX,CLE,PDX,PDF)
+&#8226; Host: ilt.mulesoft-training.com
+&#8226; Port: 80
+&#8226; Base path: /essentials/united/flights
+">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/united" allowedMethods="GET" doc:name="HTTP"/>
         <set-variable variableName="destination" value="#[(message.inboundProperties.'http.query.params'.code==empty) ? 'SFO':message.inboundProperties.'http.query.params'.code]" doc:name="Set Destination" doc:description="Takes a REST query parm &quot;code&quot; as the airport, but if none is provided it'll default to SFO flights only."/>
         <http:request config-ref="United_REST_Request_Configuration" path="/{destination}" method="GET" doc:name="United REST request">
@@ -22,13 +37,56 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         </http:request>
         <logger message="test" level="INFO" doc:name="Logger"/>
     </flow>
-    <flow name="getBankAccountsFlow">
+    <flow name="getDeltaFlightFlow" doc:description="Delta SOAP web service
+&#8226; URL: http://ilt.mulesoft-training.com/essentials/delta
+&#8226; Operations: listAllFlights, findFlight
+&#8226; WSDL: http://ilt.mulesoft-training.com/essentials/delta?wsdl
+">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/delta" allowedMethods="GET" doc:name="HTTP"/>
+        <ws:consumer config-ref="Delta_Web_Service_Consumer" operation="listAllFlights" doc:name="Delta SOAP Request"/>
+        <mulexml:dom-to-xml-transformer doc:name="DOM to XML"/>
+        <logger message="#[payload" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getAmericanFlightFlow" doc:description="
+MySQL database
+&#8226; Server: iltdb.mulesoft-training.com
+&#8226; Port: 3306
+&#8226; User: mule
+&#8226; Password: mule
+&#8226; Database: training
+&#8226; American table: flights
+&#8226; Account table: accounts
+&#8226; Account form URL:  http://ilt.mulesoft-training.com/essentials/accounts
+&#8226; Account list URL:  http://ilt.mulesoft-training.com/essentials/accounts/show
+">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/american" allowedMethods="GET" doc:name="HTTP"/>
+        <set-variable variableName="destination" value="#[(message.inboundProperties.'http.query.params'.code==empty) ? 'SFO':message.inboundProperties.'http.query.params'.code]" doc:name="Copy_of_Set Destination" doc:description="...copied from the united flow
+
+Takes a REST query parm &quot;code&quot; as the airport, but if none is provided it'll default to SFO flights only.
+
+"/>
+        <db:select config-ref="MySQL_Configuration" doc:name="American DB Request">
+            <db:parameterized-query><![CDATA[select * from flights where toAirport = #[flowVars.destination]]]></db:parameterized-query>
+        </db:select>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getBankAccountsFlow" doc:description="Banking RAML
+&#8226; URL: https://anypoint.mulesoft.com/apiplatform/repository/public/organizations/1203/apis/9565/versions/9867/files/root
+">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/bank/{ID}" allowedMethods="GET" doc:name="HTTP"/>
         <http:request config-ref="Bank_REST_Request_Configuration" path="/customers/{customer_id}/accounts" method="GET" doc:name="Bank REST Request">
             <http:request-builder>
                 <http:uri-param paramName="customer_id" value="#[message.inboundProperties.'http.uri.params'.ID]"/>
             </http:request-builder>
         </http:request>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getCSVAccountsFlow" doc:description="takes an input file and moves it to an output destination folder and renames the file, appends the .backup to the file name.">
+        <file:inbound-endpoint path="src/main/resources/input" moveToPattern="#[message.inboundProperties.originalFilename].backup" moveToDirectory="src/main/resources/output" responseTimeout="10000" doc:name="File">
+            <file:filename-regex-filter pattern=".*csv" caseSensitive="false"/>
+        </file:inbound-endpoint>
+        <file:file-to-string-transformer doc:name="File to String"/>
         <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
     <flow name="ap_essentialsFlow">
@@ -38,5 +96,22 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <set-variable variableName="qptype" value="#[message.inboundProperties.'http.query.params'.type]" doc:name="Variable"/>
         <set-session-variable variableName="qpcolor" value="#[message.inboundProperties.'http.query.params'.color]" doc:name="Session Variable"/>
         <logger message="#[&quot;Name: &quot; + message.outboundProperties.qpname + &quot;: &quot; + &quot;Type &quot; + flowVars.qptype + &quot;:&quot; + &quot;Color &quot; + sessionVars.qpcolor + &quot;:&quot; + payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getTopicMessagesFlow" doc:description="JMS
+&#8226; ActiveMQ Broker URL: tcp://54.69.115.37:61616
+&#8226; Form URL: http://ilt.mulesoft-training.com/jms/
+">
+        <jms:inbound-endpoint topic="apessentials" connector-ref="Active_MQ" doc:name="JMS"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="postTopicMessageFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/jms" allowedMethods="GET" doc:name="HTTP"/>
+        <set-payload value="#[message.inboundProperties.'http.query.params'.message]" doc:name="Set Payload"/>
+        <set-property propertyName="name" value="Twelven" doc:name="setName"/>
+        <jms:outbound-endpoint topic="apessentials" connector-ref="Active_MQ" doc:name="JMS"/>
+        <logger message="#[&quot;Name:&quot; +  message.outboundProperties.name + &quot; ...&quot; + payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getSFDFAccountsFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/sfdc" allowedMethods="GET" doc:name="HTTP"/>
     </flow>
 </mule>
