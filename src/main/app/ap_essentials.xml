@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -13,7 +13,8 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
 http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="United_REST_Request_Configuration" host="ilt.mulesoft-training.com" port="80" basePath="/essentials/united/flights" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Bank_REST_Request_Configuration" host="training.cloudhub.io" port="80" basePath="/build/banking/rest" doc:name="HTTP Request Configuration">
@@ -24,6 +25,73 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
     <db:mysql-config name="MySQL_Configuration" host="iltdb.mulesoft-training.com" port="3306" user="mule" password="mule" database="training" doc:name="MySQL Configuration"/>
     <jms:activemq-connector name="Active_MQ" specification="1.1" brokerURL="tcp://54.69.115.37:61616" validateConnections="true" doc:name="Active MQ"/>
     <sfdc:config name="Salesforce__Basic_Authentication" username="mcompoc@riotgames.com" password="Chloe3!!" securityToken="eRDOrbzVss64yRuR8WJcDq2Q4" doc:name="Salesforce: Basic Authentication"/>
+    <flow name="transformStaticFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/static" allowedMethods="GET" doc:name="HTTP"/>
+        <set-payload value="[{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:400,&quot;departureDate&quot;:&quot;2015/03/20&quot;,&quot;planeType&quot;:&quot;Boeing 737&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER38sd&quot;,&quot;availableSeats&quot;:0,&quot;destination&quot;:&quot;SFO&quot;},{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:945,&quot;departureDate&quot;:&quot;2015/09/11&quot;,&quot;planeType&quot;:&quot;Boeing 757&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER39rk&quot;,&quot;availableSeats&quot;:54,&quot;destination&quot;:&quot;SFO&quot;},{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:954,&quot;departureDate&quot;:&quot;2015/02/12&quot;,&quot;planeType&quot;:&quot;Boeing 777&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER39rj&quot;,&quot;availableSeats&quot;:23,&quot;destination&quot;:&quot;SFO&quot;}]" mimeType="application/json" doc:name="Set Payload"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data/empty.xml"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+
+//java
+//[payload.price, payload.availableSeats]
+ 
+//json
+// payload map {
+//	'flight$$': $
+//}
+
+//xml
+flights: {(payload map {
+		'flight$$': $
+	})
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getFlightFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/flights" allowedMethods="POST" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Set payload and destination flowVar">
+            <dw:input-payload doc:sample="sample_data/json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+data: payload
+]]></dw:set-payload>
+            <dw:set-variable variableName="destination"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.destination
+
+]]></dw:set-variable>
+            <dw:set-variable variableName="json"><![CDATA[%dw 1.0
+%output application/json
+---
+data: {
+	hub: "NUA",
+	code: payload.destination,
+	airline: payload.airline
+	}]]></dw:set-variable>
+            <dw:set-variable variableName="xml"><![CDATA[%dw 1.0
+%output application/xml
+---
+data: {
+	hub: "MUA",
+	flight: {
+		code: payload.destination,
+		airline: payload.airline
+		}
+	}
+		]]></dw:set-variable>
+        </dw:transform-message>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="getFlightFormFlow" initialState="started">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/flights" allowedMethods="GET" doc:name="HTTP"/>
+        <parse-template location="src/main/resources/FlightFinder.html" doc:name="Parse Template"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
     <flow name="getUnitedFlightFlow" doc:description="United RESTful web service
 &#8226; URL: http://ilt.mulesoft-training.com/essentials/united/flights
 &#8226; URL for a destination: http://ilt.mulesoft-training.com/essentials/united/flights/SFO (SFO,LAX,CLE,PDX,PDF)
@@ -48,7 +116,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
         <http:listener config-ref="HTTP_Listener_Configuration" path="/delta" allowedMethods="GET" doc:name="HTTP"/>
         <ws:consumer config-ref="Delta_Web_Service_Consumer" operation="listAllFlights" doc:name="Delta SOAP Request"/>
         <mulexml:dom-to-xml-transformer doc:name="DOM to XML"/>
-        <logger message="#[payload" level="INFO" doc:name="Logger"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
     <flow name="getAmericanFlightFlow" doc:description="
 MySQL database
@@ -123,5 +191,21 @@ Takes a REST query parm &quot;code&quot; as the airport, but if none is provided
 use the MEL console in debug mode and type the following to eval in memory...
 
 payload.next()"/>
+    </flow>
+    <flow name="dwDemoFlow" doc:description="uses static data in the payload to test" initialState="stopped">
+        <dw:transform-message metadata:id="923eb479-0f8f-40b0-9c45-946dc4215b41" doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data/json_1.json"/>
+            <dw:set-variable variableName="xml"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.data.*person map {
+		firstName: $.firstName,
+		lastName: $.lastName,
+		location: $.location,
+		exp: $.exp,
+		date: $.date
+}
+	   ]]></dw:set-variable>
+        </dw:transform-message>
     </flow>
 </mule>

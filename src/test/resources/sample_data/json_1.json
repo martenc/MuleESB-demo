@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<data>
+  <person>
+    <firstName>Moses</firstName>
+    <lastName>Malone</lastName>
+    <location>Los Angeles</location>
+    <exp>20</exp>
+    <date>May 27, 2016</date>
+  </person>
+  <person>
+    <firstName>Michael</firstName>
+    <lastName>Jordan</lastName>
+    <location>Chicago</location>
+    <exp>30</exp>
+    <date>May 27, 2001</date>
+  </person>
+</data>
