@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -11,7 +11,9 @@ http://www.mulesoft.org/schema/mule/ws http://www.mulesoft.org/schema/mule/ws/cu
 http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
-http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="United_REST_Request_Configuration" host="ilt.mulesoft-training.com" port="80" basePath="/essentials/united/flights" doc:name="HTTP Request Configuration"/>
     <http:request-config name="Bank_REST_Request_Configuration" host="training.cloudhub.io" port="80" basePath="/build/banking/rest" doc:name="HTTP Request Configuration">
@@ -21,6 +23,7 @@ http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/
     <db:mysql-config name="Training_MySQL_Configuration" host="iltdb.mulesoft-training.com" port="3306" user="mule" password="mule" database="training" doc:name="MySQL Configuration"/>
     <db:mysql-config name="MySQL_Configuration" host="iltdb.mulesoft-training.com" port="3306" user="mule" password="mule" database="training" doc:name="MySQL Configuration"/>
     <jms:activemq-connector name="Active_MQ" specification="1.1" brokerURL="tcp://54.69.115.37:61616" validateConnections="true" doc:name="Active MQ"/>
+    <sfdc:config name="Salesforce__Basic_Authentication" username="mcompoc@riotgames.com" password="Chloe3!!" securityToken="eRDOrbzVss64yRuR8WJcDq2Q4" doc:name="Salesforce: Basic Authentication"/>
     <flow name="getUnitedFlightFlow" doc:description="United RESTful web service
 &#8226; URL: http://ilt.mulesoft-training.com/essentials/united/flights
 &#8226; URL for a destination: http://ilt.mulesoft-training.com/essentials/united/flights/SFO (SFO,LAX,CLE,PDX,PDF)
@@ -111,7 +114,14 @@ Takes a REST query parm &quot;code&quot; as the airport, but if none is provided
         <jms:outbound-endpoint topic="apessentials" connector-ref="Active_MQ" doc:name="JMS"/>
         <logger message="#[&quot;Name:&quot; +  message.outboundProperties.name + &quot; ...&quot; + payload]" level="INFO" doc:name="Logger"/>
     </flow>
-    <flow name="getSFDFAccountsFlow">
+    <flow name="getSFDFAccountsFlow" doc:description="localhost:8081/sfdc">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/sfdc" allowedMethods="GET" doc:name="HTTP"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT BillingCity,BillingCountry,BillingPostalCode,BillingState,BillingStreet,Name FROM Account WHERE BillingPostalCode = '27215'" doc:name="Salesforce"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger" doc:description="
+
+use the MEL console in debug mode and type the following to eval in memory...
+
+payload.next()"/>
     </flow>
 </mule>
