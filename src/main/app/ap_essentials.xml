@@ -27,11 +27,14 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <sfdc:config name="Salesforce__Basic_Authentication" username="mcompoc@riotgames.com" password="Chloe3!!" securityToken="eRDOrbzVss64yRuR8WJcDq2Q4" doc:name="Salesforce: Basic Authentication"/>
     <flow name="transformStaticFlow">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/static" allowedMethods="GET" doc:name="HTTP"/>
-        <set-payload value="[{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:400,&quot;departureDate&quot;:&quot;2015/03/20&quot;,&quot;planeType&quot;:&quot;Boeing 737&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER38sd&quot;,&quot;availableSeats&quot;:0,&quot;destination&quot;:&quot;SFO&quot;},{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:945,&quot;departureDate&quot;:&quot;2015/09/11&quot;,&quot;planeType&quot;:&quot;Boeing 757&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER39rk&quot;,&quot;availableSeats&quot;:54,&quot;destination&quot;:&quot;SFO&quot;},{&quot;airlineName&quot;:&quot;United&quot;,&quot;price&quot;:954,&quot;departureDate&quot;:&quot;2015/02/12&quot;,&quot;planeType&quot;:&quot;Boeing 777&quot;,&quot;origination&quot;:&quot;MUA&quot;,&quot;flightCode&quot;:&quot;ER39rj&quot;,&quot;availableSeats&quot;:23,&quot;destination&quot;:&quot;SFO&quot;}]" mimeType="application/json" doc:name="Set Payload"/>
+        <set-payload value="&lt;ns2:listAllFlightsResponse xmlns:ns2=&quot;http://soap.training.mulesoft.com/&quot;&gt;&lt;return airlineName=&quot;United&quot;&gt;&lt;code&gt;A1B2C3&lt;/code&gt;&lt;departureDate&gt;2015/10/20&lt;/departureDate&gt;&lt;destination&gt;SFO&lt;/destination&gt;&lt;emptySeats&gt;40&lt;/emptySeats&gt;&lt;origin&gt;MUA&lt;/origin&gt;&lt;planeType&gt;Boing 737&lt;/planeType&gt;&lt;price&gt;400.0&lt;/price&gt;&lt;/return&gt;&lt;return airlineName=&quot;Delta&quot;&gt;&lt;code&gt;A1B2C4&lt;/code&gt;&lt;departureDate&gt;2015/10/21&lt;/departureDate&gt;&lt;destination&gt;LAX&lt;/destination&gt;&lt;emptySeats&gt;10&lt;/emptySeats&gt;&lt;origin&gt;MUA&lt;/origin&gt;&lt;planeType&gt;Boing 737&lt;/planeType&gt;&lt;price&gt;199.99&lt;/price&gt;&lt;/return&gt;&lt;return airlineName=&quot;Delta&quot;&gt;&lt;code&gt;AFFFC5&lt;/code&gt;&lt;departureDate&gt;2015/10/21&lt;/departureDate&gt;&lt;destination&gt;PDX&lt;/destination&gt;&lt;emptySeats&gt;30&lt;/emptySeats&gt;&lt;origin&gt;MUA&lt;/origin&gt;&lt;planeType&gt;Boing 777&lt;/planeType&gt;&lt;price&gt;283.0&lt;/price&gt;&lt;/return&gt;&lt;return airlineName=&quot;Delta&quot;&gt;&lt;code&gt;AFFFC4&lt;/code&gt;&lt;departureDate&gt;2015/10/20&lt;/departureDate&gt;&lt;destination&gt;PDX&lt;/destination&gt;&lt;emptySeats&gt;0&lt;/emptySeats&gt;&lt;origin&gt;MUA&lt;/origin&gt;&lt;planeType&gt;Boing 777&lt;/planeType&gt;&lt;price&gt;283.0&lt;/price&gt;&lt;/return&gt;&lt;return airlineName=&quot;Delta&quot;&gt;&lt;code&gt;AFFFC3&lt;/code&gt;&lt;departureDate&gt;2015/10/20&lt;/departureDate&gt;&lt;destination&gt;PDX&lt;/destination&gt;&lt;emptySeats&gt;23&lt;/emptySeats&gt;&lt;origin&gt;MUA&lt;/origin&gt;&lt;planeType&gt;Boing 777&lt;/planeType&gt;&lt;price&gt;283.0&lt;/price&gt;&lt;/return&gt;&lt;/ns2:listAllFlightsResponse&gt;" mimeType="application/xml" doc:name="Set Payload"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:input-payload doc:sample="sample_data/empty.xml"/>
             <dw:set-payload><![CDATA[%dw 1.0
-%output application/xml
+%type currency = :number {format: "#,###.##"}
+// casting the entire flight data result as a pojo (below)
+%type flight = :object{class: "com.mulesoft.training.Flight"}
+%output application/java
 ---
 
 //java
@@ -43,10 +46,21 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
 //}
 
 //xml
-flights: {(payload map {
-		'flight$$': $
-	})
-}]]></dw:set-payload>
+//flights: {(payload map {
+//		'flight$$': $
+//	})
+//}
+
+//json or java
+payload.listAllFlightsResponse.*return map {
+		dest: $.destination,
+		price: $.price as :currency,
+		//price: $.price as :number{format: "###.00"} as :string{format: "###.##"} as :number,
+		plane: $.planeType replace /(Boing)/ with "Boeing",
+		departureDate: $.departureDate as :date {format: "yyyy/MM/dd"} as :string {format: "MMM dd, yyyy"}, 
+		availableSeats: $.emptySeats as :number
+	} orderBy $.departureDate orderBy $.price distinctBy $ as :flight filter ($.availableSeats !=0)
+]]></dw:set-payload>
         </dw:transform-message>
         <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
@@ -115,7 +129,22 @@ data: {
 ">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/delta" allowedMethods="GET" doc:name="HTTP"/>
         <ws:consumer config-ref="Delta_Web_Service_Consumer" operation="listAllFlights" doc:name="Delta SOAP Request"/>
-        <mulexml:dom-to-xml-transformer doc:name="DOM to XML"/>
+        <dw:transform-message metadata:id="2774c95a-0aef-4189-b5f2-04f1ffdc1de2" doc:name="XML to Java">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+%namespace ns0 http://soap.training.mulesoft.com/
+---
+payload.ns0#listAllFlightsResponse.*return map {
+	airlineName: $.airlineName,
+	availableSeats: $.emptySeats as :number,
+	departureDate: $.departureDate,
+	destination: $.destination,
+	flightCode: $.code,
+	origination: $.origin,
+	planeType: $.planeType replace /(Boing)/ with "Boeing",
+	price: $.price
+} as :object {class: "com.mulesoft.training.Flight"}]]></dw:set-payload>
+        </dw:transform-message>
         <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
     <flow name="getAmericanFlightFlow" doc:description="
@@ -139,7 +168,22 @@ Takes a REST query parm &quot;code&quot; as the airport, but if none is provided
         <db:select config-ref="MySQL_Configuration" doc:name="American DB Request">
             <db:parameterized-query><![CDATA[select * from flights where toAirport = #[flowVars.destination]]]></db:parameterized-query>
         </db:select>
-        <object-to-string-transformer doc:name="Object to String"/>
+        <dw:transform-message doc:name="Java to Java">
+            <dw:input-payload doc:sample="sample_data/list_map.dwl"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map {
+	airlineName: $.airlineName,
+	departureDate: $.takeOffDate as :string{format: "MMM dd, yyyy"},
+	destination: $.toAirport,
+	emptySeats: $.seatsAvailable,
+	flightCode: $.code1 ++ $.code2,
+	origination: $.fromAirport,
+	planeType: $.planeType,
+	price: $.price
+}]]></dw:set-payload>
+        </dw:transform-message>
         <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
     <flow name="getBankAccountsFlow" doc:description="Banking RAML
